@@ -108,9 +108,10 @@ class CamView(ttk.Label):
 
     def showWebcamView(self):
         rawImg = cv2.cvtColor(self.cap.read()[1], cv2.COLOR_BGR2RGB)
-        imgDim = min(rawImg.shape[:2])
-        rawImg = rawImg[int(rawImg.shape[0] / 2 - imgDim / 2):int(rawImg.shape[1] / 2 + imgDim / 2),
-                 int(rawImg.shape[0] / 2 - imgDim / 2):int(rawImg.shape[1] / 2 + imgDim / 2)]
+        #imgDim = min(rawImg.shape[:2])
+        imgDim = 360
+        rawImg = cv2.resize(rawImg[int(rawImg.shape[0] / 2 - imgDim / 2):int(rawImg.shape[0] / 2 + imgDim / 2),
+                 int(rawImg.shape[1] / 2 - imgDim / 2):int(rawImg.shape[1] / 2 + imgDim / 2)],(560,560))
 
 
         # Applying the face detection method on the grayscale image
