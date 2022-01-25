@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.messagebox as mb
 import random
+from datetime import datetime
+import tkcalendar
 
 import auxFunctions
 from auxFunctions import *
@@ -17,6 +19,8 @@ ALL_EMPLOYEE_DATA = {245:
                    "Attendance":100,
                    "Deleted":int(False),
                    "facialData":0}}
+VISIBLE_ATTENDANCE_DATA_FIELDS = ["AttendanceId","UserId","Timestamp","UserName"]
+REAL_ATTENDANCE_DATA_FIELDS = ["attId","userId","timestamp","userName"]
 
 
 
@@ -40,25 +44,241 @@ for i in range(100):
 
 
 #GUI CREATION CODE
-class mainWindow(tk.Tk):
+
+class Main(tk.Tk):
     def __init__(self):
-        #WINDOW SETTINGS
         super().__init__()
-        self.title("EMPLOYEE RECORDS")
+        self.logInWin = LogIn(self)
+
+    def logUserIn(self,title):
+        self.logInWin.destroy()
+        #if title == "Administrator":
+        self.UserMenu = UserProfile(self,title)
+
+    def logUserOut(self):
+        self.UserMenu.destroy()
+        self.logInWin = LogIn(self)
+
+        
+        
+
+class LogIn(tk.Toplevel):
+    def __init__(self,root):
+        super().__init__()
+        self.root = root
+        #WINDOW ATTRIBUTES
+        self.title("ADMIN LOG IN")
+        winw,winh = (300,250)
+        winLeft = str((self.winfo_screenwidth() - winw) // 2)
+        winTop = str((self.winfo_screenheight() - winh) // 2 - 20)
+        self.geometry(f"{winw}x{winh}+{winLeft}+{winTop}")
+        self.resizable(False, False)
+        self.bind("<Return>",self.logInUser)
+        
+        #WINDOW ELEMENTS
+        #define window elements
+        elemContainer = ttk.Frame(self)
+
+        self.idInt = tk.IntVar()
+        ttk.Label(elemContainer,text="User ID : ")
+        ttk.Entry(elemContainer,textvariable=self.idInt)
+        
+        self.passStr = tk.StringVar()
+        ttk.Label(elemContainer,text="Password : ")
+        ttk.Entry(elemContainer,textvariable=self.passStr,show = "*")
+
+        logInBtn = ttk.Button(elemContainer,text="LOG IN")
+        logInBtn.bind("<Button>",self.logInUser)
+
+        #place window elements
+        elemContainer.pack(expand = True,fill = "both",pady=20,padx = 20)
+        for child in elemContainer.winfo_children():
+            if "button" in child.widgetName:
+                ypad = 15
+            else:
+                ypad = 5
+            child.pack(expand = (ypad == 15),fill = "x",pady = ypad)
+
+        
+    def logInUser(self,event = None):
+        if self.idInt.get() == 0 or self.passStr.get() == "":
+            mb.showerror("Empty Fields..","Kindly enter both your User ID and Password to Log In..")
+            return
+        employeeData = auxFunctions.getTableData("Employees",searchField="Id",filter=self.idInt.get())
+        if len(employeeData) == 0 or employeeData[self.idInt.get()]["Password"].strip() != self.passStr.get().strip():
+            mb.showerror("Incorrect Details..","Either your User ID or your Password is incorrect, Please try again...")
+            return
+        #mb.showinfo("Successful Authentication..","Your details are correct, proceed to your user profile..")
+        self.root.logUserIn(employeeData[self.idInt.get()]["Role"])
+
+
+class UserProfile(tk.Toplevel):
+    def __init__(self,parent,role):
+        super(UserProfile, self).__init__()
+        self.root = parent
+        self.role = role
+        # WINDOW ATTRIBUTES
+        self.title("BACKEND LOG IN")
+        winw, winh = (700, 700)
+        winLeft = str((self.winfo_screenwidth() - winw) // 2)
+        winTop = str((self.winfo_screenheight() - winh) // 2 - 20)
+        self.geometry(f"{winw}x{winh}+{winLeft}+{winTop}")
+        self.resizable(False, False)
+
+        #WINDOW ELEMENTS
+        #define window elements
+        userLabel = tk.Label(self,text="ADMINISTRATOR DASHBOARD",font=("Arial", 25))
+        noteBook = ttk.Notebook(self)
+        logoutBtn = ttk.Button(self,text="LOG OUT")
+        logoutBtn.bind("<Button>",self.logoutUser)
+
+        #place window elements
+        userLabel.pack(expand=False,fill="x",pady=2)
+        noteBook.pack(expand = True,fill="both")
+        logoutBtn.pack(expand = False,fill = "x",pady = 5,padx=30)
+        noteBook.add(EmployeeDataWindow(noteBook),text = "Employee Data")
+        noteBook.add(AttendanceDataWindow(noteBook),text = "Attendance Data")
+
+    def logoutUser(self,event):
+        isSure = mb.askyesno('LOG OUT','Are you sure you want to log out...')
+        if isSure:
+            self.root.logUserOut()
+
+
+
+
+
+
+class EmployeeDataWindow(ttk.Frame):
+    def __init__(self,parent):
+        #WINDOW SETTINGS
+        super().__init__(parent)
+        '''self.title("EMPLOYEE RECORDS")
         winLeft = str((self.winfo_screenwidth() - 700) // 2)
         winTop = str((self.winfo_screenheight() - 700) // 2 - 20)
         self.geometry("700x700+" + winLeft + "+" + winTop)
-        self.resizable(False, False)
+        self.resizable(False, False)'''
 
         #MAIN FRAME
         self.mainFrame = tk.Frame(self,background = "red")
         self.mainFrame.columnconfigure(0,weight = 1)
         self.mainFrame.rowconfigure(1,weight = 1)
         self.mainFrame.pack(expand = True,fill = "both")
+        EmployeeRecordsTree(self)
+
+class AttendanceDataWindow(ttk.Frame):
+    def __init__(self,parent):
+        super(AttendanceDataWindow, self).__init__(parent)
+        # MAIN FRAME
+        self.mainFrame = tk.Frame(self, background="blue")
+        self.mainFrame.columnconfigure(0, weight=1)
+        self.mainFrame.rowconfigure(2, weight=1)
+        self.mainFrame.pack(expand=True, fill="both")
+
+        #CALENDAR
+        self.currDate = tk.StringVar()
+        self.currDate.trace("w",lambda name,index,mode:self.getDateRecords())
+        self.datePicker = tkcalendar.DateEntry(self.mainFrame, values="Text", year=2022, date_pattern="yyyy-mm-dd",textvariable = self.currDate)
+        self.datePicker.grid(row = 0,column=0,sticky="ew",columnspan=2)
+        self.currAttData = []
+        #self.datePicker = tkcalendar.Calendar(self.mainFrame, selectmode = 'day',year = 2020, month = 5,day = 22)
+        AttendanceRecordsTree(self)
+
+
+    def getDateRecords(self):
+        if self.currDate.get() != "":
+            self.currAttData = [att for att in auxFunctions.getAttendanceData() if att["timestamp"].split(" ")[0] == self.currDate.get()]
+            for aidx in range(len(self.currAttData)):
+                userData = auxFunctions.getTableData("Employees","Id",self.currAttData[aidx]["userId"])[self.currAttData[aidx]["userId"]]
+                userName = userData["firstName"]+" "+userData["lastName"]
+                self.currAttData[aidx]["userName"] = userName
+                self.currAttData[aidx]["timestamp"] = self.currAttData[aidx]["timestamp"].split(" ")[1]
 
 
 
-class RecordsTree(ttk.Treeview):
+
+
+
+
+class AttendanceRecordsTree(ttk.Treeview):
+    def __init__(self,root):
+        super().__init__(root.mainFrame,columns = REAL_ATTENDANCE_DATA_FIELDS,show = "headings")
+        self.grid(column = 0,row = 2,sticky = tk.NS)
+        self.root = root
+        #SEARCH BAR
+        self.searchBarFrame = ttk.Frame(root.mainFrame)
+
+        self.searchValue = tk.StringVar()
+        self.searchColumn = tk.StringVar()
+        self.searchColumn.set("attId")
+
+        self.searchButton = ttk.Button(self.searchBarFrame,text = "SEARCH")
+        self.searchSpecifications = tk.OptionMenu(self.searchBarFrame,self.searchColumn,*REAL_ATTENDANCE_DATA_FIELDS)
+        self.searchEntry = ttk.Entry(self.searchBarFrame,width = 200,textvariable = self.searchValue)
+
+        self.searchData = [self.searchColumn.get(),self.searchValue.get()]
+
+        for child in self.searchBarFrame.winfo_children():
+            child.pack(side = "right",fill = "y",ipadx = 20,ipady = 5)
+
+        self.searchButton.bind("<Button>",self.onClickSearch)
+        self.searchBarFrame.grid(column = 0,row = 1,sticky = tk.EW,columnspan = 2)
+
+
+
+        #defining headings
+        for real,vis in zip(REAL_ATTENDANCE_DATA_FIELDS,VISIBLE_ATTENDANCE_DATA_FIELDS):
+            self.heading(real,text = vis)
+
+
+        #self.heading("Attendance",text = "Attendance Details")
+
+        #Customizing columns
+        for head in REAL_ATTENDANCE_DATA_FIELDS:
+            self.column(head,anchor = tk.CENTER,width=700//4)
+
+
+
+
+        # add scrollbars
+        scrollbar = ttk.Scrollbar(root.mainFrame, orient=tk.VERTICAL, command=self.yview)
+        self.configure(yscroll=scrollbar.set)
+        scrollbar.grid(row=2, column=1, sticky='ns')
+
+        scrollbar = ttk.Scrollbar(root.mainFrame, orient=tk.HORIZONTAL, command=self.xview)
+        self.configure(xscroll=scrollbar.set)
+        scrollbar.grid(row=3, column=0, sticky='ew')
+
+
+
+
+        #update attendance records
+        self.myAttData = []
+        self.currItems = {}
+        self.updateAttendanceRecords()
+
+
+
+    def updateAttendanceRecords(self):
+        outliers = set([x["attId"] for x in self.myAttData]).symmetric_difference(set([x["attId"] for x in self.root.currAttData]))
+
+        for atId in outliers:
+            if atId in [x["attId"] for x in self.myAttData]:
+                self.delete(self.currItems[atId])
+                del self.currItems[atId]
+            else:
+                att = [x for x in self.root.currAttData if x["attId"] == atId][0]
+                self.insert("", tk.END, text=list(att.values()),
+                            values=list(att.values()))
+                self.currItems[atId] = self.get_children("")[-1]
+        self.myAttData = self.root.currAttData[:]
+        self.after(1000,self.updateAttendanceRecords)
+
+    def onClickSearch(self,event):
+        mb.showinfo("Searching...","Now searching for requested item...")
+
+
+class EmployeeRecordsTree(ttk.Treeview):
     def __init__(self,root):
         super().__init__(root.mainFrame,columns = VISIBLE_EMPLOYEE_DATA_FIELDS,show = "headings")
         self.grid(column = 0,row = 1,sticky = tk.NS)
@@ -173,6 +393,34 @@ class RecordsTree(ttk.Treeview):
                 self.insert("", tk.END, values=content)'''
         self.after(1000,self.updateEmployeeRecords)
 
+class IndividualAttendanceTree(ttk.Treeview):
+    def __init__(self,root,attData):
+        super().__init__(root.attendanceFrame,columns = ["Date","Time","Action"],show = "headings")
+        self.grid(column = 0,row = 0,sticky = tk.NS)
+
+        # defining headings
+        for head in ["Date","Time","Action"]:
+            self.heading(head, text=head)
+
+        # self.heading("Attendance",text = "Attendance Details")
+
+        # Customizing columns
+        for head in ["Date","Time","Action"]:
+            self.column(head, anchor=tk.CENTER,width = 400//3)
+
+        # add scrollbars
+        scrollbar = ttk.Scrollbar(root.attendanceFrame, orient=tk.VERTICAL, command=self.yview)
+        self.configure(yscroll=scrollbar.set)
+        scrollbar.grid(row=0, column=1, sticky='ns')
+
+
+
+        #UPDATE ATTENDANCE DATA
+        for att in attData:
+            self.insert("", tk.END, text=list(att.values()),
+                        values=list(att.values()))
+
+
 
 
 class AddNewEmployee(tk.Toplevel):
@@ -255,6 +503,9 @@ class AddNewEmployee(tk.Toplevel):
             mb.showerror("Missing Fields","Please fill in all fields in the form")
 
 
+
+
+
 class ViewEmployeeDetails(tk.Toplevel):
     def __init__(self,Id,Tree):
         super().__init__()
@@ -275,7 +526,7 @@ class ViewEmployeeDetails(tk.Toplevel):
 
         #FUNCTION BUTTONS
         self.buttonsFrame = ttk.Frame(self.mainFrame)
-        self.buttonsFrame.grid(row = 1,column = 0,sticky = tk.NSEW,ipady = 10)
+        self.buttonsFrame.grid(row = 3,column = 0,sticky = tk.NSEW,ipady = 10)
 
         self.deleteEmployeeButton = ttk.Button(self.buttonsFrame,text = "DELETE THIS EMPLOYEE")
         self.editEmployeeDetailsButton = ttk.Button(self.buttonsFrame,text = "EDIT EMPLOYEE DETAILS")
@@ -321,8 +572,48 @@ class ViewEmployeeDetails(tk.Toplevel):
             if child.winfo_class() == "Entry" or child.winfo_class() == "TCombobox":
                 child.configure(state = "disable")
 
+
         print("wait")
         #ATTENDANCE DETAILS
+        # attendance rate label
+        attData = sorted([x for x in auxFunctions.getAttendanceData() if \
+                          x["userId"] == self.ogEmployeeData["Id"]], \
+                         key=lambda x: datetime.strptime(x["timestamp"], \
+                                                         "%Y-%m-%d %H:%M:%S").timestamp(),reverse = True)
+        #calculating attendance rate
+        rawDates = [datetime.strptime(x["timestamp"],"%Y-%m-%d %H:%M:%S").timestamp() for x in attData]
+        totalDays = datetime.now().timestamp()//(3600*24) - rawDates[-1]//(3600*24)+1
+        presentDays = len(set([x//(3600*24) for x in rawDates]))
+        attRate = round(presentDays/totalDays * 100,2)
+
+        #.....
+
+        ttk.Label(self.mainFrame, text=f"ATTENDANCE RATE : {attRate}%").grid(row = 1, column = 0,ipady=5,sticky = tk.NSEW)
+
+        self.attendanceFrame = ttk.Frame(self.mainFrame)
+        self.mainFrame.columnconfigure(0, weight=1)
+        self.mainFrame.rowconfigure(0, weight=1)
+        self.attendanceFrame.grid(row = 2,column = 0,sticky = tk.NSEW)
+
+        attDicts = []
+        for att in attData:
+            thisDict = {}
+            objTime = datetime.strptime(att["timestamp"],"%Y-%m-%d %H:%M:%S")
+            #ttk.Label(self.attendanceFrame,text = cleanTime).pack(fill="x",expand=True,pady = 2)
+            thisDict["Date"] = objTime.strftime("%I:%M %p")
+            thisDict["Time"] = objTime.strftime('%d %B %Y')
+            if len([x for x in attDicts if x["Time"] == thisDict["Time"]]) % 2 == 1:
+                thisDict["Action"] = "Exit"
+            else:
+                thisDict["Action"] = "Entry"
+            attDicts.append(thisDict)
+
+        IndividualAttendanceTree(self,attDicts)
+
+
+
+
+
 
 
     def onClickEditEmployeeDetails(self,event):
@@ -367,7 +658,8 @@ class ViewEmployeeDetails(tk.Toplevel):
 if __name__ == '__main__':
     #SQL TESTING
     #getTableData(MAIN_TABLE)
-    root = mainWindow()
-    tree = RecordsTree(root)
-    root.mainloop()
+    '''root = mainWindow()
+    tree = EmployeeRecordsTree(root)
+    root.mainloop()'''
+    Main().mainloop()
 
