@@ -32,7 +32,6 @@ def getSysState(ghost = False):
 
 
 
-
 class mainWindow(tk.Tk):
     def __init__(self):
         #MAIN WINDOW DEFINITIONS
@@ -141,7 +140,7 @@ class CamView(ttk.Label):
             self.embThread.start()
 
 
-        if not isinstance(faceRect,np.ndarray) and self.perfRegistrationFlag and self.regUser != None:
+        if isinstance(faceRect,np.ndarray) and self.perfRegistrationFlag and self.regUser != None:
             updateSysState(4,1)
             self.performRegistration()
 
@@ -273,9 +272,14 @@ class InfoShelf(ttk.Frame):
         self.holderFrame.pack(fill = "both",expand = True)
 
         #ATTENDANCES FRAME
-        self.attendanceFrame = ttk.Frame(self.holderFrame, style="Attendances.TFrame",padding = (10,10))
+        self.attendanceFrame = ttk.Frame(self.holderFrame,style="Attendances.TFrame",padding = (10,10))
         self.attendanceFrame.pack(fill = "x")
+        #self.attendanceFrame.columnconfigure(0,weight = 1)
         self.allAttendances = []
+
+
+
+
 
 
         #ADD NEW USER FRAME
@@ -329,19 +333,24 @@ class InfoShelf(ttk.Frame):
         current_time = now.strftime("%H:%M:%S")
         self.actualTime.configure(text=current_time)
 
-        myAttendances = auxFunctions.getAttendanceData()
-        myAttendances = [mat for mat in myAttendances if datetime.strptime(mat["timestamp"], "%Y-%m-%d %H:%M:%S").date() == datetime.now().date()]
+        myAttendances = auxFunctions.getAttendanceData(datetime.strftime(datetime.now().date(),"%Y-%m-%d"))
+        myAttendances = sorted([mat for mat in myAttendances if datetime.strptime(mat["timestamp"], "%Y-%m-%d %H:%M:%S").date()\
+                                 == datetime.now().date()],key = lambda x:datetime.strptime(x["timestamp"], "%Y-%m-%d %H:%M:%S").timestamp()\
+                                ,reverse=True)[:4]
+        #myAttendances = []
         if len(myAttendances) > len(self.allAttendances):
             allUsers = auxFunctions.getTableData("Employees")
             for allat in self.allAttendances:
                 allat.pack_forget()
             self.allAttendances.clear()
+            midx = 0
             for mat in sorted(myAttendances,key = lambda x:x["attId"],reverse = True):
                 recordFrame = tk.Frame(self.attendanceFrame,highlightbackground="white", highlightthickness=2,background = "black")
                 ttk.Label(recordFrame,text=mat["timestamp"].split(" ")[1],style = "attRecording.TLabel").pack(fill = "x")
                 ttk.Label(recordFrame,text = f"Id No.{mat['userId']}",style = "attRecording.TLabel").pack(fill = "x")
                 ttk.Label(recordFrame,text = f"{allUsers[mat['userId']]['firstName']} {allUsers[mat['userId']]['lastName']}",style = "attRecording.TLabel").pack(fill = "x")
-                recordFrame.pack(fill = "x",ipady = 10)
+                recordFrame.pack(fill = "x",expand = False,ipady = 10)
+                midx += 1
                 self.allAttendances.append(recordFrame)
 
 

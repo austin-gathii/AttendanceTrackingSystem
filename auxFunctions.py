@@ -79,9 +79,13 @@ def updateData(table,id,vals):
     conn.commit()
     conn.close()
 
-def getAttendanceData():
+def getAttendanceData(date = None):
     conn = createAConnection()
-    cursor = conn.execute(f'''SELECT attId,userId,timestamp FROM Attendance''')
+    if date == None:
+        cursor = conn.execute(f'''SELECT attId,userId,timestamp FROM Attendance''')
+    else:
+        cursor = conn.execute(f'''SELECT attId,userId,timestamp FROM Attendance WHERE timestamp LIKE '%{date}%' ''')
+
     attendances = []
     for row in cursor:
         thisAttendance = {"attId":row[0],"userId":row[1],"timestamp":row[2]}
