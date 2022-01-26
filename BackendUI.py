@@ -160,7 +160,7 @@ class EmployeeDataWindow(ttk.Frame):
         self.resizable(False, False)'''
 
         #MAIN FRAME
-        self.mainFrame = tk.Frame(self,background = "red")
+        self.mainFrame = tk.Frame(self)
         self.mainFrame.columnconfigure(0,weight = 1)
         self.mainFrame.rowconfigure(1,weight = 1)
         self.mainFrame.pack(expand = True,fill = "both")
@@ -170,7 +170,7 @@ class AttendanceDataWindow(ttk.Frame):
     def __init__(self,parent):
         super(AttendanceDataWindow, self).__init__(parent)
         # MAIN FRAME
-        self.mainFrame = tk.Frame(self, background="blue")
+        self.mainFrame = tk.Frame(self)
         self.mainFrame.columnconfigure(0, weight=1)
         self.mainFrame.rowconfigure(2, weight=1)
         self.mainFrame.pack(expand=True, fill="both")
