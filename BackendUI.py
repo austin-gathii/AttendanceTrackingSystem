@@ -50,10 +50,10 @@ class Main(tk.Tk):
         super().__init__()
         self.logInWin = LogIn(self)
 
-    def logUserIn(self,title):
+    def logUserIn(self):
         self.logInWin.destroy()
         #if title == "Administrator":
-        self.UserMenu = UserProfile(self,title)
+        self.UserMenu = UserProfile(self)
 
     def logUserOut(self):
         self.UserMenu.destroy()
@@ -109,14 +109,16 @@ class LogIn(tk.Toplevel):
             mb.showerror("Incorrect Details..","Either your User ID or your Password is incorrect, Please try again...")
             return
         #mb.showinfo("Successful Authentication..","Your details are correct, proceed to your user profile..")
-        self.root.logUserIn(employeeData[self.idInt.get()]["Role"])
+        if employeeData[self.idInt.get()]["Role"] != "Administrator":
+            mb.showerror("Not Administrator...","The account associated with the given User Id does not have administrator privileges...")
+            return
+        self.root.logUserIn()
 
 
 class UserProfile(tk.Toplevel):
-    def __init__(self,parent,role):
+    def __init__(self,parent):
         super(UserProfile, self).__init__()
         self.root = parent
-        self.role = role
         # WINDOW ATTRIBUTES
         self.title("BACKEND LOG IN")
         winw, winh = (700, 700)
@@ -210,10 +212,10 @@ class AttendanceRecordsTree(ttk.Treeview):
 
         self.searchValue = tk.StringVar()
         self.searchColumn = tk.StringVar()
-        self.searchColumn.set("attId")
+        self.searchColumn.set("Employee Name")
 
         self.searchButton = ttk.Button(self.searchBarFrame,text = "SEARCH")
-        self.searchSpecifications = tk.OptionMenu(self.searchBarFrame,self.searchColumn,*REAL_ATTENDANCE_DATA_FIELDS)
+        self.searchSpecifications = tk.OptionMenu(self.searchBarFrame,self.searchColumn,"Employee Name")
         self.searchEntry = ttk.Entry(self.searchBarFrame,width = 200,textvariable = self.searchValue)
 
         self.searchData = [self.searchColumn.get(),self.searchValue.get()]
@@ -253,15 +255,17 @@ class AttendanceRecordsTree(ttk.Treeview):
 
 
         #update attendance records
+        self.refresh = False
         self.myAttData = []
         self.currItems = {}
         self.updateAttendanceRecords()
 
 
 
-    def updateAttendanceRecords(self):
-        outliers = set([x["attId"] for x in self.myAttData]).symmetric_difference(set([x["attId"] for x in self.root.currAttData]))
 
+    def updateAttendanceRecords(self):
+        filteredAttData = [x for x in self.root.currAttData if self.searchData[1] == "" or self.searchData[1] in x["userName"]]
+        outliers = set([x["attId"] for x in self.myAttData]).symmetric_difference(set([x["attId"] for x in filteredAttData]))
         for atId in outliers:
             if atId in [x["attId"] for x in self.myAttData]:
                 self.delete(self.currItems[atId])
@@ -271,11 +275,14 @@ class AttendanceRecordsTree(ttk.Treeview):
                 self.insert("", tk.END, text=list(att.values()),
                             values=list(att.values()))
                 self.currItems[atId] = self.get_children("")[-1]
-        self.myAttData = self.root.currAttData[:]
+
+        self.myAttData = filteredAttData
         self.after(1000,self.updateAttendanceRecords)
 
-    def onClickSearch(self,event):
-        mb.showinfo("Searching...","Now searching for requested item...")
+    def onClickSearch(self, event):
+        self.searchData = [self.searchColumn.get(), self.searchValue.get()]
+
+
 
 
 class EmployeeRecordsTree(ttk.Treeview):
@@ -573,16 +580,15 @@ class ViewEmployeeDetails(tk.Toplevel):
                 child.configure(state = "disable")
 
 
-        print("wait")
         #ATTENDANCE DETAILS
         # attendance rate label
         attData = sorted([x for x in auxFunctions.getAttendanceData() if \
                           x["userId"] == self.ogEmployeeData["Id"]], \
                          key=lambda x: datetime.strptime(x["timestamp"], \
-                                                         "%Y-%m-%d %H:%M:%S").timestamp(),reverse = True)
+                                                         "%Y-%m-%d %H:%M:%S").timestamp())
         #calculating attendance rate
         rawDates = [datetime.strptime(x["timestamp"],"%Y-%m-%d %H:%M:%S").timestamp() for x in attData]
-        totalDays = datetime.now().timestamp()//(3600*24) - rawDates[-1]//(3600*24)+1
+        totalDays = datetime.now().timestamp()//(3600*24) - rawDates[0]//(3600*24)+1
         presentDays = len(set([x//(3600*24) for x in rawDates]))
         attRate = round(presentDays/totalDays * 100,2)
 
@@ -608,7 +614,7 @@ class ViewEmployeeDetails(tk.Toplevel):
                 thisDict["Action"] = "Entry"
             attDicts.append(thisDict)
 
-        IndividualAttendanceTree(self,attDicts)
+        IndividualAttendanceTree(self,reversed(attDicts))
 
 
 
